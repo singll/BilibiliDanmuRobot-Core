@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/xbclub/BilibiliDanmuRobot-Core/logic/danmu"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/logic/danmu"
 	"sync"
 )
 

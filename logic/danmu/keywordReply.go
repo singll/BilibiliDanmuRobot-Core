@@ -1,9 +1,9 @@
 package danmu
 
 import (
-	"github.com/xbclub/BilibiliDanmuRobot-Core/entity"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/logic"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/svc"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/logic"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
 	"strings"
 )
 

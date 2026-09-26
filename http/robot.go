@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-resty/resty/v2"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/entity"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
 	"github.com/zeromicro/go-zero/core/logx"
 	"net/url"
 	"time"

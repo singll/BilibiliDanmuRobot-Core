@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/xbclub/BilibiliDanmuRobot-Core/svc"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
 
 	gogpt "github.com/sashabaranov/go-openai"
 	"github.com/zeromicro/go-zero/core/logx"

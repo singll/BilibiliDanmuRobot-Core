@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/config"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/handler"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/config"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/handler"
 	"github.com/zeromicro/go-zero/core/logx"
 	"gopkg.in/yaml.v3"
 	"os"

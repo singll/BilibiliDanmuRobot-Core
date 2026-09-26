@@ -9,10 +9,10 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 	"github.com/golang-module/carbon/v2"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/entity"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/logic"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/model"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/svc"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/logic"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/model"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 

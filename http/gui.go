@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"github.com/avast/retry-go/v4"
 	"github.com/go-resty/resty/v2"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/entity"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpc"
 	"io"

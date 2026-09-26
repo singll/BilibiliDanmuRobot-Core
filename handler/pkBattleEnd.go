@@ -1,6 +1,6 @@
 package handler
 
-import "github.com/xbclub/BilibiliDanmuRobot-Core/svc"
+import "github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
 
 func (w *wsHandler) pkBattleEnd() {
 	w.client.RegisterCustomEventHandler("PK_BATTLE_END", func(s string) {

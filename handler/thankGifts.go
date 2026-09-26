@@ -5,20 +5,69 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/xbclub/BilibiliDanmuRobot-Core/entity"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/logic"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/logic/danmu"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/message"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/logic"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/logic/danmu"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // 礼物感谢
 func (w *wsHandler) thankGifts() {
 	w.client.RegisterCustomEventHandler("SEND_GIFT", func(s string) {
 		send := &entity.SendGiftText{}
-		_ = json.Unmarshal([]byte(s), send)
+		if err := json.Unmarshal([]byte(s), send); err != nil {
+			logx.Errorf("decode SEND_GIFT: %v", err)
+			return
+		}
 		if w.svc.Config.ThanksGift {
 			logic.PushToGiftChan(send)
 		}
 		danmu.SaveBlindBoxStat(send, w.svc)
+	})
+	w.client.RegisterCustomEventHandler("SEND_GIFT_V2", func(s string) {
+		broadcast, err := message.DecodeSendGiftV2(s)
+		if err != nil {
+			logx.Errorf("decode SEND_GIFT_V2: %v", err)
+			return
+		}
+		logx.Infof("SEND_GIFT_V2 decoded: gifts=%d thanks_enabled=%t", len(broadcast.Gifts), w.svc.Config.ThanksGift)
+		for _, gift := range broadcast.Gifts {
+			send := &entity.SendGiftText{Cmd: "SEND_GIFT_V2"}
+			send.Data.Action = gift.Action
+			send.Data.CoinType = gift.CoinType
+			send.Data.Face = broadcast.Face
+			send.Data.Giftid = int(gift.GiftID)
+			send.Data.GiftName = gift.GiftName
+			send.Data.Gifttype = int(gift.GiftType)
+			send.Data.GuardLevel = int(broadcast.GuardLevel)
+			send.Data.Num = int(gift.Num)
+			send.Data.OriginalGiftName = broadcast.BlindGift.OriginalGiftName
+			unitPrice := gift.DiscountPrice
+			if unitPrice == 0 {
+				unitPrice = gift.Price
+			}
+			send.Data.Price = int(unitPrice)
+			send.Data.Rnd = gift.Rnd
+			send.Data.Tid = gift.TID
+			send.Data.Timestamp = int(gift.Timestamp)
+			send.Data.TotalCoin = int(gift.TotalCoin)
+			if send.Data.TotalCoin == 0 {
+				send.Data.TotalCoin = int(unitPrice * gift.Num)
+			}
+			send.Data.UID = int(broadcast.UID)
+			send.Data.Uname = broadcast.Uname
+			send.Data.BlindGift.OriginalGiftName = broadcast.BlindGift.OriginalGiftName
+			send.Data.BlindGift.OriginalGiftPrice = int(broadcast.BlindGift.OriginalGiftPrice)
+			send.Data.MedalInfo.TargetID = int(broadcast.Medal.TargetID)
+			send.Data.MedalInfo.AnchorRoomid = int(broadcast.Medal.AnchorRoomID)
+			send.Data.MedalInfo.MedalLevel = int(broadcast.Medal.Level)
+			send.Data.MedalInfo.MedalName = broadcast.Medal.Name
+			if w.svc.Config.ThanksGift {
+				logic.PushToGiftChan(send)
+			}
+			danmu.SaveBlindBoxStat(send, w.svc)
+		}
 	})
 	w.client.RegisterCustomEventHandler("GUARD_BUY", func(s string) {
 		if w.svc.Config.ThanksGift {

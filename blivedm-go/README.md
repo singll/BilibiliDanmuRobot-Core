@@ -4,7 +4,7 @@ bilibili 直播弹幕 golang 库
 
 ## 安装
 ```shell
-go get github.com/xbclub/BilibiliDanmuRobot-Core/blivedm-go
+go get github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go
 ```
 
 ## 快速开始
@@ -24,9 +24,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/blivedm-go/client"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/blivedm-go/message"
-	_ "github.com/xbclub/BilibiliDanmuRobot-Core/blivedm-go/utils"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/client"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/message"
+	_ "github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/utils"
 	log "github.com/zeromicro/go-zero/core/logx"
 	"github.com/tidwall/gjson"
 )

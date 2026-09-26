@@ -1,10 +1,11 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/blivedm-go/message"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/blivedm-go/packet"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/blivedm-go/utils"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/message"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/packet"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/utils"
 	log "github.com/zeromicro/go-zero/core/logx"
 	"regexp"
 	"runtime/debug"
@@ -89,11 +90,20 @@ func (c *Client) Handle(p packet.Packet) {
 		if ind := strings.Index(cmd, ":"); ind >= 0 {
 			cmd = cmd[:ind]
 		}
+		if strings.Contains(strings.ToUpper(cmd), "GIFT") {
+			log.Infof("ws gift command: %s", cmd)
+		}
 		// 优先执行自定义 eventHandler ，会覆盖库内自带的 handler
 		f, ok := (*c.customEventHandlers)[cmd]
 		if ok {
+			if cmd == "SEND_GIFT_V2" {
+				log.Infof("received custom event: %s", cmd)
+			}
 			go cover(func() { f(sb) })
 			return
+		}
+		if cmd == "SEND_GIFT_V2" {
+			log.Errorf("received %s without a registered handler", cmd)
 		}
 		switch cmd {
 		// 弹幕
@@ -153,6 +163,16 @@ func (c *Client) Handle(p packet.Packet) {
 		}
 	case packet.HeartBeatResponse:
 	case packet.RoomEnterResponse:
+		var authResponse struct {
+			Code int `json:"code"`
+		}
+		if err := json.Unmarshal(p.Body, &authResponse); err != nil {
+			log.Errorf("decode websocket room auth response: %v", err)
+		} else if authResponse.Code != 0 {
+			log.Errorf("websocket room auth rejected: code=%d", authResponse.Code)
+		} else {
+			log.Info("websocket room auth accepted")
+		}
 	default:
 		log.Alert(fmt.Sprintf("protover: %v data: %v unknown protover", p.ProtocolVersion, p.Body))
 	}
@@ -160,6 +180,14 @@ func (c *Client) Handle(p packet.Packet) {
 
 // parseCmd 获取 JSON 报文的 CMD
 func parseCmd(d []byte) string {
+	var envelope struct {
+		Cmd string `json:"cmd"`
+	}
+	if err := json.Unmarshal(d, &envelope); err == nil && envelope.Cmd != "" {
+		return envelope.Cmd
+	}
+
+	// Keep the legacy fallback for malformed or nonstandard envelopes.
 	// {"cmd":"DANMU_MSG", ...
 	str := utils.BytesToString(d)
 	match := cmdReg.FindStringSubmatch(str)

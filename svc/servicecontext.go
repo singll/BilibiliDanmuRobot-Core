@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/glebarez/sqlite"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/config"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/model"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/config"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/model"
 	"gorm.io/gorm"
 )
 

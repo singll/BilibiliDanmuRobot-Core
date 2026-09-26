@@ -2,7 +2,7 @@ package message
 
 import (
 	"github.com/tidwall/gjson"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/blivedm-go/utils"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/utils"
 	log "github.com/zeromicro/go-zero/core/logx"
 )
 

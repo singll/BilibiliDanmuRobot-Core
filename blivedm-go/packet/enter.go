@@ -24,7 +24,7 @@ func NewEnterPacket(uid int, buvid string, roomID int, key string) []byte {
 		Buvid:    buvid,
 		RoomID:   roomID,
 		ProtoVer: 3,
-		Platform: "danmuji",
+		Platform: "web",
 		Type:     2,
 		Key:      key,
 	}

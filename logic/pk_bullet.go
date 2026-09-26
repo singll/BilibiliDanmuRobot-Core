@@ -3,9 +3,9 @@ package logic
 import (
 	"context"
 	"fmt"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/entity"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/http"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/svc"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/http"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
 	"github.com/zeromicro/go-zero/core/logx"
 	"sync"
 	"time"

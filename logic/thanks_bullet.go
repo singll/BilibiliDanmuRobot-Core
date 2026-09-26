@@ -6,8 +6,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/entity"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/svc"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
 	"sync"
 	"time"
 )

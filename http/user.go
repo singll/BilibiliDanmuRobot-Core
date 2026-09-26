@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/go-resty/resty/v2"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/entity"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
 	"github.com/zeromicro/go-zero/core/logx"
 	"os"
 	"strings"

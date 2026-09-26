@@ -1,6 +1,6 @@
 package handler
 
-import "github.com/xbclub/BilibiliDanmuRobot-Core/logic"
+import "github.com/Hello-Moeka/BilibiliDanmuRobot-Core/logic"
 
 // 天选
 func (w *wsHandler) anchorLot() {

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/blivedm-go/api"
-	"github.com/xbclub/BilibiliDanmuRobot-Core/blivedm-go/packet"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/api"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/packet"
 )
 
 type Client struct {
@@ -65,16 +65,22 @@ func (c *Client) init() error {
 		}
 		c.Uid = uid
 		c.WbiMixinKey = wbiMixinKey
-		re := regexp.MustCompile("_uuid=(.+?);")
-		result := re.FindAllStringSubmatch(c.Cookie, -1)
-		if len(result) > 0 {
-			c.Buvid = result[0][1]
-		}
 		b3, _, err := api.GetBuvid3A4()
 		if err != nil {
 			return err
 		}
-		c.Cookie += fmt.Sprintf("buvid3=%s", b3)
+		if b3 != "" {
+			// The WebSocket auth packet expects buvid3, not the unrelated _uuid cookie.
+			c.Buvid = b3
+			c.Cookie = strings.TrimRight(c.Cookie, "; ") + "; buvid3=" + b3 + ";"
+		} else {
+			// Keep compatibility with cookie sets that only provide _uuid.
+			re := regexp.MustCompile("_uuid=(.+?);")
+			result := re.FindStringSubmatch(c.Cookie)
+			if len(result) > 1 {
+				c.Buvid = result[1]
+			}
+		}
 	}
 
 	roomInfo, err := api.GetRoomInfo(c.RoomID)
@@ -87,13 +93,19 @@ func (c *Client) init() error {
 		info, err := api.GetDanmuInfo(c.RoomID, c.Cookie, c.WbiMixinKey)
 		if err != nil || info == nil || info.Data.HostList == nil {
 			log.Errorf("get DanmuInfo error: %v", err)
-			c.hostList = []string{"broadcastlv.chat.bilibili.com"}
+			c.hostList = []string{"broadcastlv.chat.bilibili.com:2245"}
 		} else {
 			for _, h := range info.Data.HostList {
-				c.hostList = append(c.hostList, h.Host)
+				if h.Host == "" || h.WssPort <= 0 {
+					continue
+				}
+				c.hostList = append(c.hostList, fmt.Sprintf("%s:%d", h.Host, h.WssPort))
 			}
+			c.token = info.Data.Token
 		}
-		c.token = info.Data.Token
+		if len(c.hostList) == 0 {
+			c.hostList = []string{"broadcastlv.chat.bilibili.com:2245"}
+		}
 	}
 	return nil
 }
@@ -185,7 +197,7 @@ func (c *Client) SetHost(host string) {
 
 // UseDefaultHost 使用默认 host broadcastlv.chat.bilibili.com
 func (c *Client) UseDefaultHost() {
-	c.hostList = []string{"broadcastlv.chat.bilibili.com"}
+	c.hostList = []string{"broadcastlv.chat.bilibili.com:2245"}
 }
 
 func (c *Client) sendEnterPacket() error {
