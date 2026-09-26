@@ -169,9 +169,9 @@ func decodeSendGiftItem(b []byte, out *SendGiftV2Item) error {
 		case 5:
 			out.Price = asVarint(value)
 		case 6:
-			out.TotalCoin = asVarint(value)
-		case 7:
 			out.DiscountPrice = asVarint(value)
+		case 7:
+			out.TotalCoin = asVarint(value)
 		case 8:
 			out.CoinType = string(value)
 		case 9:

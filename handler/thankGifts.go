@@ -33,36 +33,7 @@ func (w *wsHandler) thankGifts() {
 		}
 		logx.Infof("SEND_GIFT_V2 decoded: gifts=%d thanks_enabled=%t", len(broadcast.Gifts), w.svc.Config.ThanksGift)
 		for _, gift := range broadcast.Gifts {
-			send := &entity.SendGiftText{Cmd: "SEND_GIFT_V2"}
-			send.Data.Action = gift.Action
-			send.Data.CoinType = gift.CoinType
-			send.Data.Face = broadcast.Face
-			send.Data.Giftid = int(gift.GiftID)
-			send.Data.GiftName = gift.GiftName
-			send.Data.Gifttype = int(gift.GiftType)
-			send.Data.GuardLevel = int(broadcast.GuardLevel)
-			send.Data.Num = int(gift.Num)
-			send.Data.OriginalGiftName = broadcast.BlindGift.OriginalGiftName
-			unitPrice := gift.DiscountPrice
-			if unitPrice == 0 {
-				unitPrice = gift.Price
-			}
-			send.Data.Price = int(unitPrice)
-			send.Data.Rnd = gift.Rnd
-			send.Data.Tid = gift.TID
-			send.Data.Timestamp = int(gift.Timestamp)
-			send.Data.TotalCoin = int(gift.TotalCoin)
-			if send.Data.TotalCoin == 0 {
-				send.Data.TotalCoin = int(unitPrice * gift.Num)
-			}
-			send.Data.UID = int(broadcast.UID)
-			send.Data.Uname = broadcast.Uname
-			send.Data.BlindGift.OriginalGiftName = broadcast.BlindGift.OriginalGiftName
-			send.Data.BlindGift.OriginalGiftPrice = int(broadcast.BlindGift.OriginalGiftPrice)
-			send.Data.MedalInfo.TargetID = int(broadcast.Medal.TargetID)
-			send.Data.MedalInfo.AnchorRoomid = int(broadcast.Medal.AnchorRoomID)
-			send.Data.MedalInfo.MedalLevel = int(broadcast.Medal.Level)
-			send.Data.MedalInfo.MedalName = broadcast.Medal.Name
+			send := sendGiftV2ToLegacy(broadcast, gift)
 			if w.svc.Config.ThanksGift {
 				logic.PushToGiftChan(send)
 			}
@@ -100,4 +71,46 @@ func (w *wsHandler) thankGifts() {
 			}
 		}
 	})
+}
+
+func sendGiftV2ToLegacy(broadcast *message.SendGiftV2, gift message.SendGiftV2Item) *entity.SendGiftText {
+	send := &entity.SendGiftText{Cmd: "SEND_GIFT_V2"}
+	send.Data.Action = gift.Action
+	send.Data.CoinType = gift.CoinType
+	send.Data.Face = broadcast.Face
+	send.Data.Giftid = int(gift.GiftID)
+	send.Data.GiftName = gift.GiftName
+	send.Data.Gifttype = int(gift.GiftType)
+	send.Data.GuardLevel = int(broadcast.GuardLevel)
+	send.Data.Num = int(gift.Num)
+	send.Data.OriginalGiftName = broadcast.BlindGift.OriginalGiftName
+	// Price is the revealed item's unit value. TotalCoin is the whole send's
+	// paid amount, so it must not be used to calculate blind-box profit.
+	unitPrice := gift.Price
+	if unitPrice == 0 && broadcast.BlindGift.OriginalGiftName == "" {
+		unitPrice = gift.DiscountPrice
+	}
+	send.Data.Price = int(unitPrice)
+	send.Data.Rnd = gift.Rnd
+	send.Data.Tid = gift.TID
+	send.Data.Timestamp = int(gift.Timestamp)
+	send.Data.TotalCoin = int(gift.TotalCoin)
+	if send.Data.TotalCoin == 0 {
+		paidUnitPrice := gift.DiscountPrice
+		if broadcast.BlindGift.OriginalGiftName != "" {
+			paidUnitPrice = broadcast.BlindGift.OriginalGiftPrice
+		} else if paidUnitPrice == 0 {
+			paidUnitPrice = unitPrice
+		}
+		send.Data.TotalCoin = int(paidUnitPrice * gift.Num)
+	}
+	send.Data.UID = int(broadcast.UID)
+	send.Data.Uname = broadcast.Uname
+	send.Data.BlindGift.OriginalGiftName = broadcast.BlindGift.OriginalGiftName
+	send.Data.BlindGift.OriginalGiftPrice = int(broadcast.BlindGift.OriginalGiftPrice)
+	send.Data.MedalInfo.TargetID = int(broadcast.Medal.TargetID)
+	send.Data.MedalInfo.AnchorRoomid = int(broadcast.Medal.AnchorRoomID)
+	send.Data.MedalInfo.MedalLevel = int(broadcast.Medal.Level)
+	send.Data.MedalInfo.MedalName = broadcast.Medal.Name
+	return send
 }
