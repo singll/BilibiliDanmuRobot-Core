@@ -53,7 +53,7 @@ func (w *wsHandler) thankGifts() {
 				if w.svc.Config.ThanksGiftUseAt {
 					replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.Itoa(send.Data.Uid), ReplyName: send.Data.Username}}
 				}
-				logic.GiftPersona(w.svc, "观众"+send.Data.Username+"开通/续费了"+send.Data.GiftName, "谢谢"+send.Data.Username+"的支持，一起陪清悦呀💙", replies...)
+				logic.GiftPersona(w.svc, "观众"+send.Data.Username+"开通/续费了"+send.Data.GiftName, "谢谢"+send.Data.Username+"的支持。", replies...)
 				return
 			}
 			if w.svc.Config.ThanksGiftUseAt {

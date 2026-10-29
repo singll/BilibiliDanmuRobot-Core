@@ -254,7 +254,7 @@ func (w *wsHandler) startLogic() {
 					return
 				case now := <-ticker.C:
 					if w.svc.Companion.CanIdle(now) {
-						w.svc.Companion.Submit(companion.Event{Scene: "idle", Facts: "直播中，近期没有观众弹幕或礼物互动。温柔陪伴大家，可以围绕喜欢鱼清悦或一个轻松的小话题说一句。不声称看到画面，不声称回忆过去。"}, 30*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid) })
+						w.svc.Companion.Submit(companion.Event{Scene: "idle", Facts: "直播中，近期没有观众弹幕或礼物互动。顺口说一句轻松的日常话题，也可以安静陪伴；无需提主播，不固定用问句、关心话或emoji收尾。不声称看到画面，不声称回忆过去。"}, 30*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid) })
 					}
 				}
 			}
@@ -369,7 +369,7 @@ func (w *wsHandler) corndanmuStart() {
 					if len(danmus.Danmu) > 0 {
 						fallback = danmus.Danmu[rand.Intn(len(danmus.Danmu))]
 					}
-					w.svc.Companion.Submit(companion.Event{Scene: "clock", Facts: "请按提供的北京时间报时，随后附上一句符合人设的简短关心。原时段文案参考：" + fallback, Fallback: fallback}, 45*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid) })
+					w.svc.Companion.Submit(companion.Event{Scene: "clock", Facts: "请按提供的北京时间自然报时，可顺带一句简短的话，也可以只报时。不要固定提醒喝水或休息；原时段文案只作信息参考，不必沿用句式：" + fallback, Fallback: fallback}, 45*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid) })
 					return
 				}
 				if len(danmus.Danmu) > 0 {

@@ -107,7 +107,7 @@ func companionGifts(ctx context.Context, svcCtx *svc.ServiceContext) {
 				if svcCtx.Config.ThanksGiftUseAt {
 					replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.Itoa(b.uid), ReplyName: b.name}}
 				}
-				GiftPersona(svcCtx, "观众"+b.name+"赠送了"+b.summary(), "谢谢"+b.name+"的礼物，心意收到啦💙", replies...)
+				GiftPersona(svcCtx, "观众"+b.name+"赠送了"+b.summary(), "谢谢"+b.name+"的礼物。", replies...)
 			}
 		}
 	}

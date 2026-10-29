@@ -31,7 +31,7 @@ func (w *wsHandler) redPocket() {
 				if w.svc.Config.ThanksGiftUseAt {
 					replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.Itoa(send.Data.Uid), ReplyName: send.Data.Uname}}
 				}
-				logic.GiftPersona(w.svc, fmt.Sprintf("观众%s送出了%s红包", send.Data.Uname, send.Data.GiftName), "谢谢"+send.Data.Uname+"的红包，心意收到啦💙", replies...)
+				logic.GiftPersona(w.svc, fmt.Sprintf("观众%s送出了%s红包", send.Data.Uname, send.Data.GiftName), "谢谢"+send.Data.Uname+"的红包。", replies...)
 			} else if w.svc.Config.ThanksGiftUseAt {
 				logic.PushToBulletSender(fmt.Sprintf("感谢 %d 电池的 %s", send.Data.Price, send.Data.GiftName), &entity.DanmuMsgTextReplyInfo{
 					ReplyUid:  strconv.Itoa(send.Data.Uid),

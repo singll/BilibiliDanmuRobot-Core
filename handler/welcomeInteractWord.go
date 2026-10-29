@@ -88,7 +88,7 @@ func (w *wsHandler) welcomeInteractWord() {
 						name = interact.Data.Uname
 						replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.FormatInt(interact.Data.Uid, 10), ReplyName: name}}
 					}
-					w.svc.Companion.Submit(companion.Event{Scene: "welcome", Name: name, Facts: "观众" + interact.Data.Uname + "刚刚" + action + "了主播的直播间，请以陪伴观众身份表示感谢。", Fallback: "谢谢" + interact.Data.Uname + "的" + action + "，一起陪清悦呀💙"}, 30*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid, replies...) })
+					w.svc.Companion.Submit(companion.Event{Scene: "welcome", Name: name, Facts: "观众" + interact.Data.Uname + "刚刚" + action + "了主播的直播间，请以陪伴观众身份表示感谢。", Fallback: "谢谢" + interact.Data.Uname + "的" + action + "。"}, 30*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid, replies...) })
 					return
 				}
 				msg := ""
@@ -122,7 +122,7 @@ func (w *wsHandler) welcomeInteractWord() {
 						name = interact.Data.Uname
 						replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.FormatInt(interact.Data.Uid, 10), ReplyName: name}}
 					}
-					w.svc.Companion.Submit(companion.Event{Scene: "welcome", Name: name, Facts: "观众" + interact.Data.Uname + "刚刚" + action + "了主播的直播间，请以陪伴观众身份表示感谢。", Fallback: "谢谢" + interact.Data.Uname + "的" + action + "，一起陪清悦呀💙"}, 30*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid, replies...) })
+					w.svc.Companion.Submit(companion.Event{Scene: "welcome", Name: name, Facts: "观众" + interact.Data.Uname + "刚刚" + action + "了主播的直播间，请以陪伴观众身份表示感谢。", Fallback: "谢谢" + interact.Data.Uname + "的" + action + "。"}, 30*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid, replies...) })
 					return
 				}
 				msg := ""

@@ -76,7 +76,7 @@ func Interact(ctx context.Context, svcCtx *svc.ServiceContext) {
 					name = g.Name
 					replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.FormatInt(g.Uid, 10), ReplyName: name}}
 				}
-				svcCtx.Companion.Submit(companion.Event{Scene: "welcome", Facts: "观众" + g.Name + "进入直播间。欢迎词参考：" + g.Msg, Name: name, Fallback: "欢迎" + g.Name + "，一起陪清悦呀💙"}, 30*time.Second, func(msg string, valid func() bool) { PushPersona(msg, valid, replies...) })
+				svcCtx.Companion.Submit(companion.Event{Scene: "welcome", Facts: "观众" + g.Name + "进入直播间。欢迎词参考：" + g.Msg, Name: name, Fallback: "欢迎" + g.Name + "，随便坐。"}, 30*time.Second, func(msg string, valid func() bool) { PushPersona(msg, valid, replies...) })
 				continue
 			}
 			//interractGiver.tmpmsg = append(interractGiver.tmpmsg, *g)

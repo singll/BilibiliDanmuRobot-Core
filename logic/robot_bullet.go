@@ -48,7 +48,7 @@ func handleRobotBullet(content entity.Bullet, svcCtx *svc.ServiceContext) {
 		if len(content.Reply) > 0 && content.Reply[0] != nil {
 			name = content.Reply[0].ReplyName
 		}
-		svcCtx.Companion.Submit(companion.Event{Scene: "chat", Facts: content.Msg, Name: name, Fallback: "在呢，刚刚走神了一下，稍后再聊好哦。"}, 45*time.Second, func(msg string, valid func() bool) { PushPersona(msg, valid, content.Reply...) })
+		svcCtx.Companion.Submit(companion.Event{Scene: "chat", Facts: content.Msg, Name: name, Fallback: "刚刚没接上，稍后再聊。"}, 45*time.Second, func(msg string, valid func() bool) { PushPersona(msg, valid, content.Reply...) })
 		return
 	}
 
