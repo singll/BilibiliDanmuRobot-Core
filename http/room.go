@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/go-resty/resty/v2"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
+	"github.com/go-resty/resty/v2"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -111,7 +111,7 @@ func RankListInfo(roomid int, userid int64, page int) (toplistinfo *entity.RankL
 		return nil, err
 	}
 	if toplistinfo.Code != 0 {
-		logx.Errorf("直播间id %v 用户id %v 获取高能列表失败", roomid, roomid, userid)
+		logx.Errorf("直播间id %v 用户id %v 获取高能列表失败", roomid, userid)
 		return nil, errors.New("获取高能列表失败")
 	}
 	return toplistinfo, nil

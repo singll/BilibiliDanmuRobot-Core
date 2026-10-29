@@ -82,6 +82,14 @@ func (c *Client) OnUserToast(f func(*message.UserToast)) {
 
 // Handle 处理一个包
 func (c *Client) Handle(p packet.Packet) {
+	select {
+	case <-c.done:
+		return
+	default:
+	}
+	if c.OnPacket != nil {
+		c.OnPacket()
+	}
 	switch p.Operation {
 	case packet.Notification:
 		cmd := parseCmd(p.Body)
@@ -139,14 +147,14 @@ func (c *Client) Handle(p packet.Packet) {
 			l := new(message.LiveStart)
 			l.Parse(p.Body)
 			for _, fn := range c.eventHandlers.liveStartHandlers {
-				go cover(func() { fn(l) })
+				cover(func() { fn(l) })
 			}
 			//下播
 		case "PREPARING":
 			l := new(message.LiveStop)
 			l.Parse(p.Body)
 			for _, fn := range c.eventHandlers.liveStopHandlers {
-				go cover(func() { fn(l) })
+				cover(func() { fn(l) })
 			}
 		// 用户 toast
 		case "USER_TOAST_MSG":
@@ -163,6 +171,9 @@ func (c *Client) Handle(p packet.Packet) {
 		}
 	case packet.HeartBeatResponse:
 	case packet.RoomEnterResponse:
+		if c.OnConnection != nil {
+			c.OnConnection(false)
+		}
 		var authResponse struct {
 			Code int `json:"code"`
 		}
@@ -171,6 +182,9 @@ func (c *Client) Handle(p packet.Packet) {
 		} else if authResponse.Code != 0 {
 			log.Errorf("websocket room auth rejected: code=%d", authResponse.Code)
 		} else {
+			if c.OnConnection != nil {
+				c.OnConnection(true)
+			}
 			log.Info("websocket room auth accepted")
 		}
 	default:

@@ -29,8 +29,9 @@ func (w *wsHandler) welcomeEntryEffect() {
 		if v, ok := w.svc.Config.WelcomeString[fmt.Sprint(entry.Data.Uid)]; w.svc.Config.WelcomeSwitch && ok && w.svc.Config.EntryEffect {
 			//logic.PushToBulletSender(v)
 			logic.PushToInterractChan(&logic.InterractData{
-				Uid: entry.Data.Uid,
-				Msg: v,
+				Uid:  entry.Data.Uid,
+				Name: entry.Data.Uinfo.Base.Name,
+				Msg:  v,
 			})
 		} else if w.svc.Config.EntryEffect {
 			logx.Info("特效欢迎")
@@ -60,8 +61,9 @@ func (w *wsHandler) welcomeEntryEffect() {
 
 			if len(msg) > 0 {
 				logic.PushToInterractChan(&logic.InterractData{
-					Uid: entry.Data.Uid,
-					Msg: getRandomWelcome(msg, w.svc),
+					Uid:  entry.Data.Uid,
+					Name: entry.Data.Uinfo.Base.Name,
+					Msg:  getRandomWelcome(msg, w.svc),
 				})
 			}
 		}

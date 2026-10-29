@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/message"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
@@ -20,6 +21,7 @@ func (w *wsHandler) thankGifts() {
 			logx.Errorf("decode SEND_GIFT: %v", err)
 			return
 		}
+		w.svc.Companion.Activity(time.Now())
 		if w.svc.Config.ThanksGift {
 			logic.PushToGiftChan(send)
 		}
@@ -34,6 +36,7 @@ func (w *wsHandler) thankGifts() {
 		logx.Infof("SEND_GIFT_V2 decoded: gifts=%d thanks_enabled=%t", len(broadcast.Gifts), w.svc.Config.ThanksGift)
 		for _, gift := range broadcast.Gifts {
 			send := sendGiftV2ToLegacy(broadcast, gift)
+			w.svc.Companion.Activity(time.Now())
 			if w.svc.Config.ThanksGift {
 				logic.PushToGiftChan(send)
 			}
@@ -44,9 +47,19 @@ func (w *wsHandler) thankGifts() {
 		if w.svc.Config.ThanksGift {
 			send := &entity.GuardBuyText{}
 			_ = json.Unmarshal([]byte(s), send)
+			w.svc.Companion.Activity(time.Now())
+			if w.svc.Config.Companion.Enabled && w.svc.Config.Companion.Gift {
+				var replies []*entity.DanmuMsgTextReplyInfo
+				if w.svc.Config.ThanksGiftUseAt {
+					replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.Itoa(send.Data.Uid), ReplyName: send.Data.Username}}
+				}
+				logic.GiftPersona(w.svc, "观众"+send.Data.Username+"开通/续费了"+send.Data.GiftName, "谢谢"+send.Data.Username+"的支持，一起陪清悦呀💙", replies...)
+				return
+			}
 			if w.svc.Config.ThanksGiftUseAt {
 				logic.PushToGuardChan(send, &entity.DanmuMsgTextReplyInfo{
-					ReplyUid: strconv.Itoa(send.Data.Uid),
+					ReplyUid:  strconv.Itoa(send.Data.Uid),
+					ReplyName: send.Data.Username,
 				})
 			} else {
 				logic.PushToGuardChan(send)
@@ -62,12 +75,24 @@ func (w *wsHandler) thankGifts() {
 				data.Data.ContentSegments[1].Text == "投喂" &&
 				data.Data.ContentSegments[2].Text == "大航海盲盒" {
 
-				logic.PushToBulletSender(fmt.Sprintf("感谢 %s 的 %s", data.Data.ContentSegments[0].Text, data.Data.ContentSegments[4].Text))
+				msg := fmt.Sprintf("感谢 %s 的 %s", data.Data.ContentSegments[0].Text, data.Data.ContentSegments[4].Text)
+				w.svc.Companion.Activity(time.Now())
+				if w.svc.Config.Companion.Enabled && w.svc.Config.Companion.Gift {
+					logic.GiftPersona(w.svc, msg, msg)
+				} else {
+					logic.PushToBulletSender(msg)
+				}
 			} else if len(data.Data.ContentSegments) == 6 &&
 				data.Data.ContentSegments[2].Text == "投喂" &&
 				data.Data.ContentSegments[3].Text == "大航海盲盒" {
 
-				logic.PushToBulletSender(fmt.Sprintf("感谢 %s 的 %s", data.Data.ContentSegments[1].Text, data.Data.ContentSegments[5].Text))
+				msg := fmt.Sprintf("感谢 %s 的 %s", data.Data.ContentSegments[1].Text, data.Data.ContentSegments[5].Text)
+				w.svc.Companion.Activity(time.Now())
+				if w.svc.Config.Companion.Enabled && w.svc.Config.Companion.Gift {
+					logic.GiftPersona(w.svc, msg, msg)
+				} else {
+					logic.PushToBulletSender(msg)
+				}
 			}
 		}
 	})

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/logic"
@@ -20,13 +21,21 @@ func (w *wsHandler) redPocket() {
 		// logx.Info(s)
 		send := &entity.RedPocketNew{}
 		_ = json.Unmarshal([]byte(s), send)
+		w.svc.Companion.Activity(time.Now())
 		locked.Lock()
 		_redPocketCnt++
 		locked.Unlock()
 		if w.svc.Config.ThanksGift {
-			if w.svc.Config.ThanksGiftUseAt {
+			if w.svc.Config.Companion.Enabled && w.svc.Config.Companion.Gift {
+				var replies []*entity.DanmuMsgTextReplyInfo
+				if w.svc.Config.ThanksGiftUseAt {
+					replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.Itoa(send.Data.Uid), ReplyName: send.Data.Uname}}
+				}
+				logic.GiftPersona(w.svc, fmt.Sprintf("观众%s送出了%s红包", send.Data.Uname, send.Data.GiftName), "谢谢"+send.Data.Uname+"的红包，心意收到啦💙", replies...)
+			} else if w.svc.Config.ThanksGiftUseAt {
 				logic.PushToBulletSender(fmt.Sprintf("感谢 %d 电池的 %s", send.Data.Price, send.Data.GiftName), &entity.DanmuMsgTextReplyInfo{
-					ReplyUid: strconv.Itoa(send.Data.Uid),
+					ReplyUid:  strconv.Itoa(send.Data.Uid),
+					ReplyName: send.Data.Uname,
 				})
 			} else {
 				logic.PushToBulletSender(fmt.Sprintf("感谢 %s %d电池的 %s", send.Data.Uname, send.Data.Price, send.Data.GiftName))
@@ -40,7 +49,6 @@ func (w *wsHandler) redPocket() {
 			logic.PushToBulletSender("识别到红包，欢迎弹幕已临时关闭")
 		}
 	})
-
 
 	w.client.RegisterCustomEventHandler("POPULARITY_RED_POCKET_WINNER_LIST", func(s string) {
 		locked.Lock()

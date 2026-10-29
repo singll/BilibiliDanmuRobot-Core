@@ -10,9 +10,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
-var danmuHandler *DanmuLogic
+var danmuHandler = &DanmuLogic{danmuChan: make(chan string, 1000)}
 
 type DanmuLogic struct {
 	danmuChan chan string
@@ -24,10 +25,6 @@ func PushToBDanmuLogic(bullet string) {
 
 func StartDanmuLogic(ctx context.Context, svcCtx *svc.ServiceContext) {
 	var err error
-
-	danmuHandler = &DanmuLogic{
-		danmuChan: make(chan string, 1000),
-	}
 
 	var msg string
 	for {
@@ -61,6 +58,7 @@ func StartDanmuLogic(ctx context.Context, svcCtx *svc.ServiceContext) {
 
 			reply := &entity.DanmuMsgTextReplyInfo{
 				ReplyUid:   uid,
+				ReplyName:  from[1].(string),
 				ReplyMsgId: tagExtra.IdStr,
 			}
 
@@ -74,6 +72,7 @@ func StartDanmuLogic(ctx context.Context, svcCtx *svc.ServiceContext) {
 				}
 			}
 			if len(danmumsg) > 0 && uid != svcCtx.RobotID {
+				svcCtx.Companion.Activity(time.Now())
 				// 机器人相关
 				go DoDanmuProcess(danmumsg, svcCtx, reply)
 				// 弹幕统计

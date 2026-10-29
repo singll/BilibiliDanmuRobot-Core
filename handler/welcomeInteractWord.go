@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/companion"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/logic"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
@@ -20,6 +21,9 @@ func (w *wsHandler) welcomeInteractWord() {
 	w.client.RegisterCustomEventHandler("INTERACT_WORD", func(s string) {
 		interact := &entity.InteractWordText{}
 		_ = json.Unmarshal([]byte(s), interact)
+		if interact.Data.MsgType != 1 && strconv.FormatInt(interact.Data.Uid, 10) != w.svc.RobotID {
+			w.svc.Companion.Activity(time.Now())
+		}
 		// 1 进场 2 关注 3 分享 5(互关)
 		if interact.Data.MsgType == 1 {
 			if !w.svc.Config.InteractSelf && strconv.Itoa(int(interact.Data.Uid)) == w.svc.RobotID {
@@ -31,8 +35,9 @@ func (w *wsHandler) welcomeInteractWord() {
 
 			if v, ok := w.svc.Config.WelcomeString[fmt.Sprint(interact.Data.Uid)]; w.svc.Config.WelcomeSwitch && ok {
 				logic.PushToInterractChan(&logic.InterractData{
-					Uid: interact.Data.Uid,
-					Msg: v,
+					Uid:  interact.Data.Uid,
+					Name: interact.Data.Uname,
+					Msg:  v,
 				})
 			} else if w.svc.Config.InteractWord {
 				// 不在黑名单才欢迎
@@ -42,23 +47,26 @@ func (w *wsHandler) welcomeInteractWord() {
 						msg := handleInterractByTime(interact.Data.Uid, welcomeInteract(interact.Data.Uname), w.svc)
 						logx.Debug(msg)
 						logic.PushToInterractChan(&logic.InterractData{
-							Uid: interact.Data.Uid,
-							Msg: msg,
+							Uid:  interact.Data.Uid,
+							Name: interact.Data.Uname,
+							Msg:  msg,
 						})
 					} else {
 						msg := handleInterract(interact.Data.Uid, welcomeInteract(interact.Data.Uname), w.svc)
 						ms := strings.Split(msg, "\n")
-						if len(ms) > 1 {
+						if len(ms) > 1 && !(w.svc.Config.Companion.Enabled && w.svc.Config.Companion.Welcome) {
 							for i, s := range ms {
 								logic.PushToInterractChan(&logic.InterractData{
-									Uid: interact.Data.Uid + int64(i),
-									Msg: s,
+									Uid:  interact.Data.Uid + int64(i),
+									Name: interact.Data.Uname,
+									Msg:  s,
 								})
 							}
 						} else {
 							logic.PushToInterractChan(&logic.InterractData{
-								Uid: interact.Data.Uid,
-								Msg: msg,
+								Uid:  interact.Data.Uid,
+								Name: interact.Data.Uname,
+								Msg:  msg,
 							})
 						}
 					}
@@ -69,11 +77,26 @@ func (w *wsHandler) welcomeInteractWord() {
 				if len(interact.Data.Uname) == 0 {
 					return
 				}
+				if w.svc.Config.Companion.Enabled && w.svc.Config.Companion.Welcome {
+					action := "关注"
+					if interact.Data.MsgType == 3 {
+						action = "分享"
+					}
+					var replies []*entity.DanmuMsgTextReplyInfo
+					name := ""
+					if w.svc.Config.WelcomeUseAt {
+						name = interact.Data.Uname
+						replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.FormatInt(interact.Data.Uid, 10), ReplyName: name}}
+					}
+					w.svc.Companion.Submit(companion.Event{Scene: "welcome", Name: name, Facts: "观众" + interact.Data.Uname + "刚刚" + action + "了主播的直播间，请以陪伴观众身份表示感谢。", Fallback: "谢谢" + interact.Data.Uname + "的" + action + "，一起陪清悦呀💙"}, 30*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid, replies...) })
+					return
+				}
 				msg := ""
 				if w.svc.Config.WelcomeUseAt {
 					msg = "感谢关注!" + w.svc.Config.FocusDanmu[random.Intn(len(w.svc.Config.FocusDanmu))]
 					logic.PushToBulletSender(msg, &entity.DanmuMsgTextReplyInfo{
-						ReplyUid: strconv.FormatInt(interact.Data.Uid, 10),
+						ReplyUid:  strconv.FormatInt(interact.Data.Uid, 10),
+						ReplyName: interact.Data.Uname,
 					})
 				} else {
 					msg := "感谢 " + shortName(interact.Data.Uname, 8, w.svc.Config.DanmuLen) + " 的关注!"
@@ -88,11 +111,26 @@ func (w *wsHandler) welcomeInteractWord() {
 				if len(interact.Data.Uname) == 0 {
 					return
 				}
+				if w.svc.Config.Companion.Enabled && w.svc.Config.Companion.Welcome {
+					action := "关注"
+					if interact.Data.MsgType == 3 {
+						action = "分享"
+					}
+					var replies []*entity.DanmuMsgTextReplyInfo
+					name := ""
+					if w.svc.Config.WelcomeUseAt {
+						name = interact.Data.Uname
+						replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.FormatInt(interact.Data.Uid, 10), ReplyName: name}}
+					}
+					w.svc.Companion.Submit(companion.Event{Scene: "welcome", Name: name, Facts: "观众" + interact.Data.Uname + "刚刚" + action + "了主播的直播间，请以陪伴观众身份表示感谢。", Fallback: "谢谢" + interact.Data.Uname + "的" + action + "，一起陪清悦呀💙"}, 30*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid, replies...) })
+					return
+				}
 				msg := ""
 				if w.svc.Config.WelcomeUseAt {
 					msg = "感谢分享!" + w.svc.Config.FocusDanmu[random.Intn(len(w.svc.Config.FocusDanmu))]
 					logic.PushToBulletSender(msg, &entity.DanmuMsgTextReplyInfo{
-						ReplyUid: strconv.FormatInt(interact.Data.Uid, 10),
+						ReplyUid:  strconv.FormatInt(interact.Data.Uid, 10),
+						ReplyName: interact.Data.Uname,
 					})
 				} else {
 					msg = "感谢 " + shortName(interact.Data.Uname, 8, w.svc.Config.DanmuLen) + " 的分享!"

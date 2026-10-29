@@ -11,12 +11,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/api"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/packet"
+	"github.com/gorilla/websocket"
 )
 
 type Client struct {
+	OnPacket            func()
+	OnConnection        func(bool)
 	conn                *websocket.Conn
 	RoomID              int
 	Uid                 int
@@ -86,7 +88,7 @@ func (c *Client) init() error {
 	roomInfo, err := api.GetRoomInfo(c.RoomID)
 	// 失败降级
 	if err != nil || roomInfo.Code != 0 {
-		return errors.New(fmt.Sprintf("room=%s init GetRoomInfo fialed, %s", c.RoomID, err))
+		return errors.New(fmt.Sprintf("room=%d init GetRoomInfo fialed, %s", c.RoomID, err))
 	}
 	c.RoomID = roomInfo.Data.RoomId
 	if c.host == "" {
@@ -114,6 +116,11 @@ func (c *Client) connect() error {
 	reqHeader := &http.Header{}
 	reqHeader.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36")
 retry:
+	select {
+	case <-c.done:
+		return context.Canceled
+	default:
+	}
 	c.host = c.hostList[c.retryCount%len(c.hostList)]
 	c.retryCount++
 	conn, res, err := websocket.DefaultDialer.Dial(fmt.Sprintf("wss://%s/sub", c.host), *reqHeader)
@@ -122,7 +129,19 @@ retry:
 		time.Sleep(2 * time.Second)
 		goto retry
 	}
+	c.lock.Lock()
+	old := c.conn
 	c.conn = conn
+	c.lock.Unlock()
+	if old != nil {
+		_ = old.Close()
+	}
+	select {
+	case <-c.done:
+		_ = conn.Close()
+		return context.Canceled
+	default:
+	}
 	_ = res.Body.Close()
 	if err = c.sendEnterPacket(); err != nil {
 		log.Errorf("failed to send enter packet, retry %d times", c.retryCount)
@@ -138,8 +157,14 @@ func (c *Client) wsLoop() {
 		case <-c.done:
 			return
 		default:
-			msgType, data, err := c.conn.ReadMessage()
+			c.lock.RLock()
+			conn := c.conn
+			c.lock.RUnlock()
+			msgType, data, err := conn.ReadMessage()
 			if err != nil {
+				if c.OnConnection != nil {
+					c.OnConnection(false)
+				}
 				log.Error("ws message read failed, reconnecting")
 				time.Sleep(time.Duration(3) * time.Millisecond)
 				_ = c.connect()
@@ -150,7 +175,7 @@ func (c *Client) wsLoop() {
 				continue
 			}
 			for _, pkt := range packet.DecodePacket(data).Parse() {
-				go c.Handle(pkt)
+				c.Handle(pkt)
 			}
 		}
 	}
@@ -189,6 +214,12 @@ func (c *Client) Start() error {
 // Stop 停止弹幕 Client
 func (c *Client) Stop() {
 	c.cancel()
+	c.lock.RLock()
+	conn := c.conn
+	c.lock.RUnlock()
+	if conn != nil {
+		conn.Close()
+	}
 }
 
 func (c *Client) SetHost(host string) {

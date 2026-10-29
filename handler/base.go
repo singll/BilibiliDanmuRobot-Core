@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	_ "github.com/glebarez/go-sqlite"
-	"github.com/robfig/cron/v3"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/client"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/message"
 	_ "github.com/Hello-Moeka/BilibiliDanmuRobot-Core/blivedm-go/utils"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/companion"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/config"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/http"
@@ -15,12 +15,16 @@ import (
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/logic/danmu"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/utiles"
+	_ "github.com/glebarez/go-sqlite"
+	"github.com/robfig/cron/v3"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/logx"
 	"math/rand"
 	"os"
 	"reflect"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -50,7 +54,13 @@ type wsHandler struct {
 	mapCronDanmuSendIdx map[int]int
 	userId              int
 	initStart           bool
+	logicOnce           sync.Once
+	clientGeneration    atomic.Uint64
+	companionCtx        context.Context
+	companionCancel     context.CancelFunc
 }
+
+var ConfigFile = "etc/bilidanmaku-api.yaml"
 
 func NewWsHandler() WsHandler {
 	ctx, err := mustloadConfig()
@@ -95,23 +105,16 @@ func (ws *wsHandler) ReloadConfig() error {
 	if err != nil {
 		return err
 	}
+	if ctx.Config.Companion != oldconfig.Companion || ctx.Config.ChatGPT != oldconfig.ChatGPT {
+		return errors.New("人格或模型配置已保存，请重启机器人使其生效")
+	}
 	ws.svc.Config = ctx.Config
 	if ctx.Config.RoomId != oldconfig.RoomId {
 		logx.Infof("房间号更改，更换房间号 ：%v", ctx.Config.RoomId)
-		ws.client.Stop()
-		ws.client = client.NewClient(ctx.Config.RoomId)
-		ws.client.SetCookie(http.CookieStr)
-		roominfo, err := http.RoomInit(ctx.Config.RoomId)
-		if err != nil {
-			logx.Error(err)
-			//return err
-		}
-		ctx.UserID = roominfo.Data.Uid
-		err = ws.client.Start()
-		if err != nil {
+		ws.StopWsClient()
+		if err := ws.StartWsClient(); err != nil {
 			return err
 		}
-		ws.registerHandler()
 	}
 	if ctx.Config.CronDanmu != oldconfig.CronDanmu || !areSlicesEqual(ctx.Config.CronDanmuList, oldconfig.CronDanmuList) {
 		logx.Info("识别到定时弹幕配置发生变化，重新加载")
@@ -136,9 +139,11 @@ type WsHandler interface {
 }
 
 func (w *wsHandler) InitStartWsClient() {
-	w.startLogic()
+	w.logicOnce.Do(w.startLogic)
 }
 func (w *wsHandler) StartWsClient() error {
+	w.InitStartWsClient()
+
 	if w.svc.Config.EntryMsg != "off" {
 		err := http.Send(w.svc.Config.EntryMsg, w.svc)
 		if err != nil {
@@ -148,6 +153,22 @@ func (w *wsHandler) StartWsClient() error {
 	w.corndanmu.Start()
 	w.client = client.NewClient(w.svc.Config.RoomId)
 	w.client.SetCookie(http.CookieStr)
+	id := w.clientGeneration.Add(1)
+	var live, connected atomic.Bool
+	live.Store(true)
+	update := func() {
+		if w.clientGeneration.Load() == id {
+			w.svc.Companion.SetLive(live.Load() && connected.Load(), time.Now())
+		}
+	}
+	w.client.OnPacket = func() {
+		if w.clientGeneration.Load() == id {
+			w.svc.Companion.Packet(time.Now())
+		}
+	}
+	w.client.OnConnection = func(ok bool) { connected.Store(ok); update() }
+	w.client.OnLiveStop(func(_ *message.LiveStop) { live.Store(false); update() })
+	w.client.OnLiveStart(func(_ *message.LiveStart) { live.Store(true); update() })
 	w.registerHandler()
 	return w.client.Start()
 }
@@ -158,11 +179,17 @@ func (w *wsHandler) GetSvc() svc.ServiceContext {
 	return *w.svc
 }
 func (w *wsHandler) StopWsClient() {
+	w.clientGeneration.Add(1)
+	w.svc.Companion.SetLive(false, time.Now())
 	w.corndanmu.Stop()
 	w.client.Stop()
 	//w.svc.Db.Db.Close()
 }
 func (w *wsHandler) StopChanel() {
+	w.svc.Companion.SetLive(false, time.Now())
+	if w.companionCancel != nil {
+		w.companionCancel()
+	}
 	if w.sendBulletCancel != nil {
 		w.sendBulletCancel()
 	}
@@ -215,6 +242,25 @@ func (w *wsHandler) SayGoodbye() {
 	}
 }
 func (w *wsHandler) startLogic() {
+	w.companionCtx, w.companionCancel = context.WithCancel(context.Background())
+	w.svc.Companion.Start(w.companionCtx)
+	if w.svc.Config.Companion.Enabled && w.svc.Config.Companion.Idle {
+		go func() {
+			ticker := time.NewTicker(15 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-w.companionCtx.Done():
+					return
+				case now := <-ticker.C:
+					if w.svc.Companion.CanIdle(now) {
+						w.svc.Companion.Submit(companion.Event{Scene: "idle", Facts: "直播中，近期没有观众弹幕或礼物互动。温柔陪伴大家，可以围绕喜欢鱼清悦或一个轻松的小话题说一句。不声称看到画面，不声称回忆过去。"}, 30*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid) })
+					}
+				}
+			}
+		}()
+	}
+
 	w.sendBulletCtx, w.sendBulletCancel = context.WithCancel(context.Background())
 	go logic.StartSendBullet(w.sendBulletCtx, w.svc)
 	logx.Info("弹幕推送已开启...")
@@ -250,6 +296,7 @@ func (w *wsHandler) startLogic() {
 	//w.registerHandler()
 }
 func (w *wsHandler) registerHandler() {
+
 	w.welcomeEntryEffect()
 	w.welcomeInteractWord()
 	logx.Info("弹幕处理已开启")
@@ -317,6 +364,14 @@ func (w *wsHandler) corndanmuStart() {
 			i := n
 			danmus := danmux
 			_, err := w.corndanmu.AddFunc(danmus.Cron, func() {
+				if w.svc.Config.Companion.Enabled && w.svc.Config.Companion.Clock {
+					fallback := ""
+					if len(danmus.Danmu) > 0 {
+						fallback = danmus.Danmu[rand.Intn(len(danmus.Danmu))]
+					}
+					w.svc.Companion.Submit(companion.Event{Scene: "clock", Facts: "请按提供的北京时间报时，随后附上一句符合人设的简短关心。原时段文案参考：" + fallback, Fallback: fallback}, 45*time.Second, func(s string, valid func() bool) { logic.PushPersona(s, valid) })
+					return
+				}
 				if len(danmus.Danmu) > 0 {
 					if danmus.Random {
 						logic.PushToBulletSender(danmus.Danmu[rand.Intn(len(danmus.Danmu))])
@@ -348,7 +403,10 @@ func mustloadConfig() (*svc.ServiceContext, error) {
 	}
 
 	var c config.Config
-	conf.MustLoad("etc/bilidanmaku-api.yaml", &c, conf.UseEnv())
+	conf.MustLoad(ConfigFile, &c, conf.UseEnv())
+	if err := c.ValidateCompanion(); err != nil {
+		return nil, err
+	}
 	logx.MustSetup(c.Log)
 	logx.DisableStat()
 	//配置数据库文件夹

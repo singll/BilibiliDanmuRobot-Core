@@ -2,11 +2,14 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
-	"github.com/avast/retry-go/v4"
+	"fmt"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/companion"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
+	"github.com/avast/retry-go/v4"
 	"github.com/zeromicro/go-zero/core/logx"
 	"io"
 	"mime/multipart"
@@ -35,6 +38,23 @@ import (
 //}
 
 func Send(msg string, svcCtx *svc.ServiceContext, reply ...*entity.DanmuMsgTextReplyInfo) error {
+	return SendWithGuard(msg, svcCtx, nil, reply...)
+}
+
+func SendWithGuard(msg string, svcCtx *svc.ServiceContext, valid func() bool, reply ...*entity.DanmuMsgTextReplyInfo) error {
+	if svcCtx.Config.Companion.Enabled {
+		name := ""
+		if len(reply) > 0 && reply[0] != nil {
+			name = reply[0].ReplyName
+			if name == "" {
+				return errors.New("missing mention name")
+			}
+		}
+		msg = companion.Fit(msg, name, svcCtx.Config.Companion.MaxUnits)
+		if msg == "" {
+			return errors.New("empty or over-budget message")
+		}
+	}
 	var err error
 	var url = "https://api.live.bilibili.com/msg/send"
 	var respdata *entity.DanmuResp = new(entity.DanmuResp)
@@ -48,7 +68,7 @@ func Send(msg string, svcCtx *svc.ServiceContext, reply ...*entity.DanmuMsgTextR
 	//m["room_type"] = "0"
 	//m["jumpfrom"] = "0"
 	//m["reply_attr"] = "0"
-	if len(reply) > 0 {
+	if len(reply) > 0 && reply[0] != nil {
 		m["reply_mid"] = reply[0].ReplyUid
 		if len(reply[0].ReplyMsgId) > 0 {
 			m["replay_dmid"] = reply[0].ReplyMsgId
@@ -58,6 +78,9 @@ func Send(msg string, svcCtx *svc.ServiceContext, reply ...*entity.DanmuMsgTextR
 	m["csrf"] = CookieList["bili_jct"]
 	m["csrf_token"] = CookieList["bili_jct"]
 	err = retry.Do(func() error {
+		if valid != nil && !valid() {
+			return retry.Unrecoverable(errors.New("message expired or cancelled"))
+		}
 		_, data, err := postWithFormData(http.MethodPost, url, userAgent, CookieStr, &m)
 		if err != nil {
 			logx.Errorf("请求send失败：%v", err)
@@ -66,21 +89,21 @@ func Send(msg string, svcCtx *svc.ServiceContext, reply ...*entity.DanmuMsgTextR
 		err = json.Unmarshal(data, respdata)
 		if err != nil {
 			logx.Errorf("send弹幕响应解析失败:%v", err)
-			return nil
+			return err
 		}
 		if respdata.Code != 0 {
 			logx.Infof("请求send失败:%s", respdata.Msg)
 			return errors.New(respdata.Msg)
 		}
 		if respdata.Msg == "f" {
-			logx.Infof("请求send失败:%s , %s", respdata.Msg, "弹幕内容包含敏感词，被服务器拒绝")
+			return errors.New("弹幕被服务器拒绝")
 		}
 		return nil
 	}, retry.Attempts(3), retry.Delay(1*time.Second))
 	if err != nil {
 		logx.Error(err)
 	}
-	return nil
+	return err
 }
 func postWithFormData(method, url, ua, cookie string, postData *map[string]string) (int, []byte, error) {
 	body := new(bytes.Buffer)
@@ -89,7 +112,12 @@ func postWithFormData(method, url, ua, cookie string, postData *map[string]strin
 		w.WriteField(k, v)
 	}
 	w.Close()
-	req, _ := http.NewRequest(method, url, body)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return 0, nil, err
+	}
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	req.Header.Set("Cookie", cookie)
 	req.Header.Set("user-agent", ua)
@@ -98,7 +126,13 @@ func postWithFormData(method, url, ua, cookie string, postData *map[string]strin
 		logx.Error(err)
 		return 0, nil, err
 	}
-	data, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	defer resp.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return resp.StatusCode, nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return resp.StatusCode, nil, fmt.Errorf("send HTTP %d", resp.StatusCode)
+	}
 	return resp.StatusCode, data, nil
 }

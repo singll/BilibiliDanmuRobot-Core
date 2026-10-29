@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/companion"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,7 +13,7 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-var interractGiver *InterractGiver
+var interractGiver = &InterractGiver{interractChan: make(chan *InterractData, 1000)}
 
 type InterractGiver struct {
 	interractFilter map[int64]time.Time
@@ -23,6 +24,7 @@ type InterractGiver struct {
 type InterractData struct {
 	Uid   int64
 	Msg   string
+	Name  string
 	Reply *entity.DanmuMsgTextReplyInfo
 }
 
@@ -32,12 +34,8 @@ func PushToInterractChan(g *InterractData) {
 
 func Interact(ctx context.Context, svcCtx *svc.ServiceContext) {
 
-	interractGiver = &InterractGiver{
-		interractFilter: map[int64]time.Time{},
-		locked:          new(sync.Mutex),
-		//tableMu:         sync.RWMutex{},
-		interractChan: make(chan *InterractData, 1000),
-	}
+	interractGiver.interractFilter = map[int64]time.Time{}
+	interractGiver.locked = new(sync.Mutex)
 
 	var g *InterractData
 	var w = 10 * time.Second
@@ -68,6 +66,19 @@ func Interact(ctx context.Context, svcCtx *svc.ServiceContext) {
 
 			t.Reset(w)
 		case g = <-interractGiver.interractChan:
+			if svcCtx.Config.Companion.Enabled && svcCtx.Config.Companion.Welcome {
+				if !svcCtx.Companion.AdmitWelcome(g.Uid, time.Now()) {
+					continue
+				}
+				var replies []*entity.DanmuMsgTextReplyInfo
+				name := ""
+				if svcCtx.Config.WelcomeUseAt && g.Name != "" {
+					name = g.Name
+					replies = []*entity.DanmuMsgTextReplyInfo{{ReplyUid: strconv.FormatInt(g.Uid, 10), ReplyName: name}}
+				}
+				svcCtx.Companion.Submit(companion.Event{Scene: "welcome", Facts: "观众" + g.Name + "进入直播间。欢迎词参考：" + g.Msg, Name: name, Fallback: "欢迎" + g.Name + "，一起陪清悦呀💙"}, 30*time.Second, func(msg string, valid func() bool) { PushPersona(msg, valid, replies...) })
+				continue
+			}
 			//interractGiver.tmpmsg = append(interractGiver.tmpmsg, *g)
 			interractGiver.locked.Lock()
 			if value, ok := interractGiver.interractFilter[g.Uid]; ok && value.Add(w).Unix() >= time.Now().Unix() {
@@ -77,7 +88,8 @@ func Interact(ctx context.Context, svcCtx *svc.ServiceContext) {
 				for _, s := range parts {
 					if svcCtx.Config.WelcomeUseAt {
 						g.Reply = &entity.DanmuMsgTextReplyInfo{
-							ReplyUid: strconv.FormatInt(g.Uid, 10),
+							ReplyUid:  strconv.FormatInt(g.Uid, 10),
+							ReplyName: g.Name,
 						}
 						PushToBulletSender(s, g.Reply)
 					} else {

@@ -1,17 +1,21 @@
 package svc
 
 import (
+	"context"
 	"fmt"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/companion"
+	"github.com/zeromicro/go-zero/core/logx"
 
-	"github.com/glebarez/sqlite"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/config"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/model"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
 type ServiceContext struct {
-	Config       *config.Config
-	OtherSideUid map[int64]bool
+	Config            *config.Config
+	Companion         *companion.Runtime
+	OtherSideUid      map[int64]bool
 	SignInModel       model.SignInModel
 	DanmuCntModel     model.DanmuCntModel
 	BlindBoxStatModel model.BlindBoxStatModel
@@ -30,8 +34,12 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	if err != nil {
 		panic(err)
 	}
+	runtime := companion.New(c.Companion, func(ctx context.Context, e companion.Event) (string, error) {
+		return companion.Generate(ctx, c.ChatGPT, c.Companion.MaxTokens, e)
+	}, func(s string) { logx.Info(s) })
 	return &ServiceContext{
-		OtherSideUid: make(map[int64]bool),
+		Companion:         runtime,
+		OtherSideUid:      make(map[int64]bool),
 		SignInModel:       model.NewSignInModel(db, int64(c.RoomId)),
 		DanmuCntModel:     model.NewDanmuCntModel(db, int64(c.RoomId)),
 		BlindBoxStatModel: model.NewBlindBoxStatModel(db, int64(c.RoomId)),

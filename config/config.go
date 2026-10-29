@@ -1,7 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"github.com/zeromicro/go-zero/core/logx"
+	"net/url"
+	"strings"
 )
 
 type Config struct {
@@ -24,17 +27,12 @@ type Config struct {
 	KeywordReplyList map[string]string `json:",optional"`      // 关键词回复列表
 
 	// AI聊天相关
-	TalkRobotCmd  string   `json:",default=test"`                                // 机器人聊天关键字
-	FuzzyMatchCmd bool     `json:",default=false"`                               // 模糊匹配关键字
-	RobotName     string   `json:",default=花花"`                                  // 机器人名称
-	RobotMode     string   `json:",default=QingYunKe,options=QingYunKe|ChatGPT"` // 机器人服务
-	ChatGPT       struct { // GPT的配置
-		APIUrl   string `json:",default=https://api.openai.com/v1"`
-		APIToken string `json:",optional"`
-		Prompt   string `json:",default=你是一个非常幽默的机器人助理，可以使用emoji表情符号，可以使用颜文字"`
-		Limit    bool   `json:",default=true"`
-		Model    string `json:",default=gpt-3.5-turbo"`
-	}
+	TalkRobotCmd  string `json:",default=test"`                                // 机器人聊天关键字
+	FuzzyMatchCmd bool   `json:",default=false"`                               // 模糊匹配关键字
+	RobotName     string `json:",default=花花"`                                  // 机器人名称
+	RobotMode     string `json:",default=QingYunKe,options=QingYunKe|ChatGPT"` // 机器人服务
+	ChatGPT       ChatGPTConfig
+	Companion     CompanionConfig `json:",optional"`
 
 	// 欢迎配置
 	InteractWord       bool       `json:",default=false"`         // 欢迎弹幕开关
@@ -99,4 +97,55 @@ type CronDanmuList struct {
 	Cron   string   `json:",optional"`      // 定时表达式
 	Random bool     `json:",default=false"` // 是否随机发送
 	Danmu  []string `json:",optional"`
+}
+
+// ChatGPTConfig is shared by interactive replies and persona event generation.
+type ChatGPTConfig struct {
+	APIUrl   string `json:",default=https://api.openai.com/v1"`
+	APIToken string `json:",optional"`
+	Prompt   string `json:",default=你是一个友好的直播间陪伴机器人"`
+	Limit    bool   `json:",default=true"`
+	Model    string `json:",default=gpt-3.5-turbo"`
+}
+
+// Companion is opt-in so existing deployments retain their event behavior.
+type CompanionConfig struct {
+	Enabled                bool `json:",default=false"`
+	Welcome                bool `json:",default=false"`
+	Gift                   bool `json:",default=false"`
+	Clock                  bool `json:",default=false"`
+	Idle                   bool `json:",default=false"`
+	MaxUnits               int  `json:",default=80"`
+	TimeoutSeconds         int  `json:",default=12"`
+	MinRequestSeconds      int  `json:",default=12"`
+	WelcomeCooldownSeconds int  `json:",default=60"`
+	GiftMaxWaitSeconds     int  `json:",default=20"`
+	IdleAfterSeconds       int  `json:",default=300"`
+	IdleJitterSeconds      int  `json:",default=60"`
+	IdleCooldownSeconds    int  `json:",default=900"`
+	IdleMaxPerHour         int  `json:",default=2"`
+	QuietAfterSendSeconds  int  `json:",default=120"`
+	MaxTokens              int  `json:",default=256"`
+}
+
+// ValidateCompanion fails before starting workers, rather than silently routing to
+// a legacy chatbot when an enabled persona configuration is incomplete.
+func (c Config) ValidateCompanion() error {
+	if !c.Companion.Enabled {
+		return nil
+	}
+	if c.RobotMode != "ChatGPT" || strings.TrimSpace(c.ChatGPT.APIToken) == "" || strings.TrimSpace(c.ChatGPT.Model) == "" || strings.TrimSpace(c.ChatGPT.Prompt) == "" {
+		return fmt.Errorf("Companion requires RobotMode ChatGPT, API token, model and persona prompt")
+	}
+	u, err := url.Parse(c.ChatGPT.APIUrl)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("invalid Companion API URL")
+	}
+	if c.Companion.MaxUnits < 2 || c.Companion.MaxUnits > 80 {
+		return fmt.Errorf("Companion MaxUnits must be between 2 and 80")
+	}
+	if c.Companion.TimeoutSeconds < 1 || c.Companion.MinRequestSeconds < 1 || c.Companion.MaxTokens < 1 {
+		return fmt.Errorf("Companion timeout, request interval and tokens must be positive")
+	}
+	return nil
 }

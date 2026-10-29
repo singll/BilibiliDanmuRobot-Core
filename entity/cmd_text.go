@@ -11,11 +11,13 @@ type DanmuMsgText struct {
 type DanmuMsgTextReplyInfo struct {
 	ReplyUid   string
 	ReplyMsgId string
+	ReplyName  string
 }
 
 type Bullet struct {
 	Msg   string
 	Reply []*DanmuMsgTextReplyInfo
+	Valid func() bool
 }
 
 type DanmuMsgTextInfo0Extra struct {

@@ -3,11 +3,11 @@ package logic
 import (
 	"context"
 	"fmt"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
 	"math"
 	"strconv"
 	"strings"
-	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
-	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
 	"sync"
 	"time"
 )
@@ -15,7 +15,7 @@ import (
 // 检测到礼物，push [uname]->[giftName]->[cost]，number+1
 // 每3s统计一次礼物，并进行感谢，礼物价值高于x元加一句大气
 
-var thanksGiver *GiftThanksGiver
+var thanksGiver = &GiftThanksGiver{giftChan: make(chan *entity.SendGiftText, 1000)}
 
 type GiftThanksGiver struct {
 	giftNameUidTable     map[string]int
@@ -43,14 +43,15 @@ func PushToGuardChan(g *entity.GuardBuyText, reply ...*entity.DanmuMsgTextReplyI
 
 func ThanksGift(ctx context.Context, svcCtx *svc.ServiceContext) {
 
-	thanksGiver = &GiftThanksGiver{
-		giftNameUidTable:     make(map[string]int),
-		giftNotBlindBoxTable: make(map[string]map[string]map[string]int),
-		giftBlindBoxTable:    make(map[string]map[string]map[string]int),
-		giftBlindBoxTimer:    make(map[int]*time.Timer),
-		locked:               new(sync.Mutex),
-		tableMu:              sync.RWMutex{},
-		giftChan:             make(chan *entity.SendGiftText, 1000),
+	thanksGiver.giftNameUidTable = make(map[string]int)
+	thanksGiver.giftNotBlindBoxTable = make(map[string]map[string]map[string]int)
+	thanksGiver.giftBlindBoxTable = make(map[string]map[string]map[string]int)
+	thanksGiver.giftBlindBoxTimer = make(map[int]*time.Timer)
+	thanksGiver.locked = new(sync.Mutex)
+
+	if svcCtx.Config.Companion.Enabled && svcCtx.Config.Companion.Gift {
+		companionGifts(ctx, svcCtx)
+		return
 	}
 
 	var g *entity.SendGiftText
@@ -165,6 +166,7 @@ func summarizeBlindGift(danmuLen int, svcCtx *svc.ServiceContext) {
 			} else {
 				PushToBulletSender(msgShort, &entity.DanmuMsgTextReplyInfo{
 					ReplyUid:   strconv.Itoa(thanksGiver.giftNameUidTable[name]),
+					ReplyName:  name,
 					ReplyMsgId: "",
 				})
 			}
@@ -174,6 +176,7 @@ func summarizeBlindGift(danmuLen int, svcCtx *svc.ServiceContext) {
 			} else {
 				PushToBulletSender(msg, &entity.DanmuMsgTextReplyInfo{
 					ReplyUid:   strconv.Itoa(thanksGiver.giftNameUidTable[name]),
+					ReplyName:  name,
 					ReplyMsgId: "",
 				})
 			}
@@ -223,6 +226,7 @@ func summarizeGift(danmuLen int, minCost int, svcCtx *svc.ServiceContext) {
 			} else {
 				PushToBulletSender(msgShort, &entity.DanmuMsgTextReplyInfo{
 					ReplyUid:   strconv.Itoa(thanksGiver.giftNameUidTable[name]),
+					ReplyName:  name,
 					ReplyMsgId: "",
 				})
 			}
@@ -232,6 +236,7 @@ func summarizeGift(danmuLen int, minCost int, svcCtx *svc.ServiceContext) {
 			} else {
 				PushToBulletSender(msg, &entity.DanmuMsgTextReplyInfo{
 					ReplyUid:   strconv.Itoa(thanksGiver.giftNameUidTable[name]),
+					ReplyName:  name,
 					ReplyMsgId: "",
 				})
 			}

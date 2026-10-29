@@ -2,15 +2,17 @@ package logic
 
 import (
 	"context"
+	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/companion"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/http"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
 	"github.com/zeromicro/go-zero/core/logx"
 	"regexp"
 	"strings"
+	"time"
 )
 
-var robot *BulletRobot
+var robot = &BulletRobot{bulletRobotChan: make(chan entity.Bullet, 1000)}
 
 type BulletRobot struct {
 	bulletRobotChan chan entity.Bullet
@@ -26,9 +28,6 @@ func PushToBulletRobot(content string, reply ...*entity.DanmuMsgTextReplyInfo) {
 }
 
 func StartBulletRobot(ctx context.Context, svcCtx *svc.ServiceContext) {
-	robot = &BulletRobot{
-		bulletRobotChan: make(chan entity.Bullet, 1000),
-	}
 
 	var content entity.Bullet
 
@@ -44,6 +43,15 @@ END:
 }
 
 func handleRobotBullet(content entity.Bullet, svcCtx *svc.ServiceContext) {
+	if svcCtx.Config.Companion.Enabled && svcCtx.Config.RobotMode == "ChatGPT" {
+		name := ""
+		if len(content.Reply) > 0 && content.Reply[0] != nil {
+			name = content.Reply[0].ReplyName
+		}
+		svcCtx.Companion.Submit(companion.Event{Scene: "chat", Facts: content.Msg, Name: name, Fallback: "在呢，刚刚走神了一下，稍后再聊好哦。"}, 45*time.Second, func(msg string, valid func() bool) { PushPersona(msg, valid, content.Reply...) })
+		return
+	}
+
 	var err error
 	var reply string
 	if svcCtx.Config.RobotMode == "ChatGPT" {

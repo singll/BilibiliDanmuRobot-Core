@@ -3,8 +3,8 @@ package http
 import (
 	"encoding/json"
 	"errors"
-	"github.com/go-resty/resty/v2"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
+	"github.com/go-resty/resty/v2"
 	"github.com/zeromicro/go-zero/core/logx"
 	"os"
 	"strings"
@@ -85,14 +85,14 @@ func GetLoginInfo(oauthKey string) (*entity.LoginInfoData, error) {
 	//使用追加模式打开文件
 	file, err = os.OpenFile("token/bili_token.txt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		logx.Errorf("打开文件错误：", err)
+		logx.Errorf("打开文件错误：%v", err)
 	}
 	file.WriteString(CookieStr)
 	file.Close()
 	//使用追加模式打开文件
 	file, err = os.OpenFile("token/bili_token.json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		logx.Errorf("打开文件错误：", err)
+		logx.Errorf("打开文件错误：%v", err)
 	}
 	tokenstr, _ := json.Marshal(CookieList)
 	file.WriteString(string(tokenstr))
@@ -114,13 +114,13 @@ func SetHistoryCookie() error {
 	var err error
 	cookie, err = os.ReadFile("token/bili_token.txt")
 	if err != nil {
-		logx.Errorf("打开文件错误：", err)
+		logx.Errorf("打开文件错误：%v", err)
 		return err
 	}
 	CookieStr = string(cookie)
 	cookie, err = os.ReadFile("token/bili_token.json")
 	if err != nil {
-		logx.Errorf("打开文件错误：", err)
+		logx.Errorf("打开文件错误：%v", err)
 		return err
 	}
 	err = json.Unmarshal(cookie, &CookieList)
