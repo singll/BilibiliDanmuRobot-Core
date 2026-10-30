@@ -3,7 +3,6 @@ package danmu
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 
@@ -81,15 +80,7 @@ func queryBlindBoxStat(ctx context.Context, msg, uid string, svcCtx *svc.Service
 		return "", err
 	}
 	if ret.C == 0 {
-		return period.label + "暂无盲盒记录", nil
+		return period.label + "暂无相关记录", nil
 	}
-	count := fmt.Sprintf("%s共%d个", period.label, ret.C)
-	switch {
-	case ret.R > 0:
-		return fmt.Sprintf("%s，赚%.2f元", count, float64(ret.R)/1000), nil
-	case ret.R < 0:
-		return fmt.Sprintf("%s，亏%.2f元", count, math.Abs(float64(ret.R)/1000)), nil
-	default:
-		return count + "，不赚不亏", nil
-	}
+	return fmt.Sprintf("%s数量%d个，盈亏%+.2f元", period.label, ret.C, float64(ret.R)/1000), nil
 }
