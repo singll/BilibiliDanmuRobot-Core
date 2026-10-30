@@ -4,15 +4,14 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"regexp"
 	"strconv"
+	"time"
 
-	_ "github.com/glebarez/go-sqlite"
-	"github.com/golang-module/carbon/v2"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/entity"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/logic"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/model"
 	"github.com/Hello-Moeka/BilibiliDanmuRobot-Core/svc"
+	_ "github.com/glebarez/go-sqlite"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -23,7 +22,7 @@ func SaveBlindBoxStat(g *entity.SendGiftText, svcCtx *svc.ServiceContext) {
 	if g.Data.BlindGift.OriginalGiftName == "" {
 		return
 	}
-	now := carbon.Now(carbon.Local)
+	now := time.Now().In(blindBoxLocation)
 	err := svcCtx.BlindBoxStatModel.Insert(context.Background(), nil, &model.BlindBoxStatBase{
 		Uid:               int64(g.Data.UID),
 		BlindBoxName:      g.Data.BlindGift.OriginalGiftName,
@@ -46,72 +45,51 @@ func DoBlindBoxStat(msg, uid, username string, svcCtx *svc.ServiceContext, reply
 		return
 	}
 
-	reg := `(?P<month>^[0-9]+)月盲盒$`
-	re := regexp.MustCompile(reg)
-
-	match := re.FindStringSubmatch(msg)
-
-	if len(match) != 2 {
-		return
-	}
-
-	month, err := strconv.Atoi(match[1])
-	if err != nil || month < 1 || month > 12 {
-		logic.PushToBulletSender(fmt.Sprintf("月份「%s」不正确!", match[1]), reply...)
-		return
-	}
-
-	id, err := strconv.ParseInt(uid, 10, 64)
+	response, err := queryBlindBoxStat(context.Background(), msg, uid, svcCtx, time.Now())
 	if err != nil {
-		logx.Error(err)
-		logic.PushToBulletSender(errInfo, reply...)
-	}
-
-	// 获取当前时间
-	now := carbon.Now(carbon.Local)
-
-	var ret *model.Result
-	// 主播查询本月所有数据
-	if svcCtx.UserID == id {
-		ret, err = svcCtx.BlindBoxStatModel.GetTotal(context.Background(), int16(now.Year()), int16(month), 0)
-	} else {
-		// 用户查询自己的数据
-		ret, err = svcCtx.BlindBoxStatModel.GetTotalOnePersion(context.Background(), id, int16(now.Year()), int16(month), 0)
-	}
-	if err == nil {
-		r := float64(ret.R) / float64(1000.0)
-		if ret.R > 0 {
-			logic.PushToBulletSender(
-				fmt.Sprintf(
-					"%s月共开%d个, 赚了＋%.2f元",
-					match[1],
-					ret.C,
-					r,
-				),
-				reply...,
-			)
-		} else if ret.R == 0 {
-			logic.PushToBulletSender(
-				fmt.Sprintf(
-					"%s月共开%d个, 没亏没赚!",
-					match[1],
-					ret.C,
-				),
-				reply...,
-			)
-		} else {
-			logic.PushToBulletSender(
-				fmt.Sprintf(
-					"%s月共开%d个, 亏了－%.2f元",
-					match[1],
-					ret.C,
-					math.Abs(r),
-				),
-				reply...,
-			)
-		}
-	} else {
 		logic.PushToBulletSender(errInfo, reply...)
 		logx.Alert("盲盒统计出错了!" + err.Error())
+		return
+	}
+	if response != "" {
+		logic.PushToBulletSender(response, reply...)
+	}
+}
+
+// queryBlindBoxStat does not enqueue or send messages, so query behavior can be
+// verified without contacting Bilibili.
+func queryBlindBoxStat(ctx context.Context, msg, uid string, svcCtx *svc.ServiceContext, now time.Time) (string, error) {
+	period, matched, err := parseBlindBoxPeriod(msg, now)
+	if !matched {
+		return "", nil
+	}
+	if err != nil {
+		return err.Error(), nil
+	}
+	id, err := strconv.ParseInt(uid, 10, 64)
+	if err != nil || id <= 0 {
+		return "", fmt.Errorf("invalid blind-box query uid %q", uid)
+	}
+	// Only the broadcaster may query the whole room. Everyone else sees their
+	// own records, including for all-history queries.
+	var filterUID *int64
+	if svcCtx.UserID != id {
+		filterUID = &id
+	}
+	ret, err := svcCtx.BlindBoxStatModel.GetTotalInRange(ctx, filterUID, period.start, period.end)
+	if err != nil {
+		return "", err
+	}
+	if ret.C == 0 {
+		return period.label + "暂无盲盒记录", nil
+	}
+	count := fmt.Sprintf("%s共%d个", period.label, ret.C)
+	switch {
+	case ret.R > 0:
+		return fmt.Sprintf("%s，赚%.2f元", count, float64(ret.R)/1000), nil
+	case ret.R < 0:
+		return fmt.Sprintf("%s，亏%.2f元", count, math.Abs(float64(ret.R)/1000)), nil
+	default:
+		return count + "，不赚不亏", nil
 	}
 }
